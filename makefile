@@ -6,11 +6,11 @@ CC = gcc
 TARGET = run.exe
 LIB_OBJECTS =$(LIB_SOURCES:.c=.o)
 LDFLAGS= -L. $(OPT) # -Wl,--gc-sections -Wl,-s -fdata-sections -ffunction-sections
-LIBS= libiron.a libglfw3.a -lpthread -ldl -lGL -lGLEW -lm  -lopenal -licydb  -lX11
+LIBS= libiron.a libmicroio.a libglfw3.a -lpthread -ldl -lGL -lGLEW -lm  -lopenal -licydb  -lX11
 ALL= $(TARGET)
-CFLAGS = -Isrc/ -I. -Iinclude/ -std=gnu11 -c $(OPT) -Werror=implicit-function-declaration -Wformat=0 -D_GNU_SOURCE -fdiagnostics-color  -Wwrite-strings -msse4.2 -Werror=maybe-uninitialized -DUSE_VALGRIND -DDEBUG -Wall
+CFLAGS = -Isrc/ -I. -Iinclude/ -Ilibmicroio/include -std=gnu11 -c $(OPT) -Werror=implicit-function-declaration -Wformat=0 -D_GNU_SOURCE -fdiagnostics-color  -Wwrite-strings -msse4.2 -Werror=maybe-uninitialized -DUSE_VALGRIND -DDEBUG -Wall
 
-$(TARGET): $(LIB_OBJECTS) libiron.a
+$(TARGET): $(LIB_OBJECTS) libiron.a libmicroio.a
 	$(CC) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS) -o $@ 
 
 all: $(ALL)
@@ -19,6 +19,12 @@ all: $(ALL)
 
 iron/libiron.a:
 	make -C iron
+
+libmicroio/libmicroio.a:
+	make -C libmicroio
+
+libmicroio.a: libmicroio/libmicroio.a
+	cp libmicroio/libmicroio.a libmicroio.a
 
 libiron.a: iron/libiron.a
 	cp iron/libiron.a libiron.a

@@ -18,109 +18,10 @@
 #include "ptr_to_u32_table.h"
 #include "main.h"
 
+#include "internal.h"
 #define ULONG_MAX 0xFFFFFFFF
 
-static inline f64 randf()
-{
-  static const f64 kTwoOverUlongMax = 2.0f / (f64)ULONG_MAX;
-	// Calculate pseudo-random 32 bit number based on linear congruential method.
-	// http://www.musicdsp.org/showone.php?id=59
-	static unsigned long random = 22222;
-	random = (random * 196314165) + 907633515;
-	u64 sample = random % (1024);
-	return (sample / 1024.0f) * 2.0f - 1.0f;
-}
 
-
-typedef enum{
-	     MODEL_TYPE_POLYGONAL = 100,
-	     MODEL_TYPE_TEXT = 200,
-	     MODEL_TYPE_FONT = 300, // sets the font for every sub element
-}model_type;
-
-typedef enum{
-	     MODEL_MODE_NONE = 0,
-	     MODEL_MODE_COLOR = 1,
-	     MODEL_MODE_OFFSET = 2,
-	     MODEL_MODE_SCALE= 4
-}model_mode;
-
-typedef struct{
-  vec2 dim_px;
-  texture tex;
-  bool loaded;
-  bool alpha;
-  char * path;
-}text_cache;
-
-distance_field * distance_field_load(scheme * sc, pointer obj);
-
-typedef struct{
-  model_type type;
-  model_mode mode;
-  blit3d_polygon * verts;
-  blit3d_polygon * uvs;
-  distance_field * distance_field;
-  text_cache cache;
-  u32 view_id;
-  union{
-    
-  //distance_field_model * dist;
-    struct {
-      char * text;
-    };
-  };
-  vec4 color;
-  vec3 offset;
-  vec3 rotation;
-  vec3 scale;
-  pointer tag;
-}model;
-
-typedef struct{
-  // a view is essentially a model that is being drawn to a texture.
-  // it can be static or non-static
-  // an example of a non-static view could be a mirror
-  // an example of a static view is a generated model, screenshot or picture.
-
-  vec2 dim_px;
-  texture tex;
-
-  mat4 view_matrix;
-  mat4 camera_matrix;
-  u32 model;
-  bool loaded;
-  bool alpha;
-
-}view;
-struct _context{
-  gl_window * win;
-  blit3d_context * blit3d;
-  int running;
-  scheme * sc;
-
-  audio_context * audio;
-  model * models;
-  u32 model_count;
-
-  view * views;
-  u32 view_count;
-
-  u32_to_u32_table * model_to_sub_model;
-  
-  u32_to_u32_table * shown_models;
-  
-  u32 current_symbol;
-  u32 current_sub_model;
-  mat4 view_matrix;
-  mat4 camera_matrix;
-
-  vec4 bg_color;
-
-  float dt;
-  pointer events;
-  u32 object_count;
-} ;
 
 context * current_context;
 void push_key_event(context * ctx, int key);
@@ -983,7 +884,6 @@ pointer model_offset(scheme * sc, pointer args){
 pointer scheme_init_internal(scheme * sc, pointer args){
   pointer l = pair_car(args);
   current_context->events = l;
-
   return sc->NIL;
 }
 
@@ -994,17 +894,6 @@ context * context_init(gl_window * win){
   printf("Loaded font: %p\n", fnt);
   blit_set_current_font(fnt);
   
-  audio_context * audio  = audio_initialize(44100);
-  
-   f32 * data =alloc0(sizeof(data[0]) * 4024);
-   f32 offs = 0.0;
-  for(int i = 0; i < 4024; i++){
-    offs += randf() * 0.1;
-    data[i] = sin(i * 0.1f + offs) * 0.1;//  * sin(i * 0.0015f + offs);
-  }
-  var sample = audio_load_samplef(audio, data, 4024);
-  audio_update_streams(audio);
-  audio_play_sample(audio, sample);
 
   static scheme_registerable reg[] = {
 				      {.f = print_result, .name = "print2"},
@@ -1036,7 +925,7 @@ context * context_init(gl_window * win){
    var sc = scheme_init_new();
    ctx->sc = sc;
    ctx->events = sc->NIL;
-   ctx->audio = audio;
+
    
    scheme_set_output_port_file(sc, stdout);
    scheme_register_foreign_func_list(sc, reg, array_count(reg));
@@ -1050,6 +939,7 @@ context * context_init(gl_window * win){
    ctx->win = win;
    ctx->view_matrix = mat4_identity();
    ctx->camera_matrix = mat4_identity();
+   init_audio_subsystem(ctx);
 
 
    // opengl must be initialized at this point!

@@ -34,6 +34,32 @@ f32 square_distance(vec3 p, void * _v){
   return square2d(p.xy, a.xy, r.xy);
 }
 
+#define dot(x,y) vec2_dot(x,y)
+#define dot2(x) vec2_dot(x,x)
+
+
+f32 polygon_distance(vec2 p, vec2 * v, u32 len)
+{
+  if(len == 0) return f32_infinity;
+  int N = len;
+  f32 d = dot2(vec2_sub(p, v[0]));
+  f32 s = 1.0;
+  for( int i=0, j=N-1; i<N; j=i, i++ )
+    {
+      vec2 e = vec2_sub(v[j], v[i]);
+      vec2 w = vec2_sub(p, v[i]);
+      vec2 b = vec2_sub(w, vec2_scale(e, CLAMP( dot(w,e)/dot(e,e), 0.0, 1.0)));
+      d = MIN( d, dot(b,b) );
+      bool a = p.y>=v[i].y,
+	bb = p.y<v[j].y,
+	c = e.x*w.y>e.y*w.x;
+      
+      if( (a & bb & c) || (!a && !bb && !c) ) s*=-1.0;  
+    }
+    return s*sqrtf(d);
+}
+
+
 distance_field * circle_df(f32 x, f32 y, f32 z, f32 r){
   distance_field * df = alloc0(sizeof(distance_field));
   vec4 * v4 = alloc0(sizeof(v4[0]));
